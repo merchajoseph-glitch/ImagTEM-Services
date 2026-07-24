@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servicios de ImagTEM - El Mundo Imaginario</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            position: relative;
+            padding: 20px 0;
+        }
+        .container {
+            background: white;
+            padding: 25px 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+            width: 330px;
+            text-align: center;
+            border-top: 5px solid #3ecf8e;
+            overflow: hidden;
+        }
+        .logo-empresa {
+            width: 95%;
+            height: auto;
+            max-height: 110px;
+            object-fit: contain;
+            margin-top: -20px;    
+            margin-bottom: -15px; 
+        }
+        h2 { color: #333; margin-top: 0px; margin-bottom: 15px; font-size: 22px; }
+        input {
+            width: 90%;
+            padding: 10px;
+            margin: 6px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+        label { display: block; text-align: left; margin-left: 15px; font-size: 12px; color: #555; font-weight: bold; }
+        button {
+            width: 95%;
+            padding: 11px;
+            background-color: #3ecf8e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 15px;
+        }
+        button:hover { background-color: #34b279; }
+        .mensaje { margin-top: 15px; font-size: 14px; font-weight: bold; word-break: break-word; }
+        .cambio { color: #007bff; cursor: pointer; font-size: 13px; margin-top: 12px; display: inline-block; }
+        
+        .esquina-cuentas {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+            font-size: 12px;
+            text-align: left;
+            max-width: 200px;
+            z-index: 10;
+        }
+        .esquina-cuentas select {
+            width: 100%;
+            margin-top: 5px;
+            padding: 3px;
+            font-size: 11px;
+        }
+        .campos-registro { display: none; }
+        .btn-cerrar {
+            width: 95%;
+            padding: 11px;
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            display: none;
+            font-size: 15px;
+        }
+        .btn-cerrar:hover { background-color: #e03d4b; }
+    </style>
+</head>
+<body>
+
+<div class="esquina-cuentas" id="bloqueHistorial">
+    <strong>Cuentas en esta tablet:</strong>
+    <select id="listaCorreos" onchange="seleccionarCuentaHistorial()">
+        <option value="">Selecciona una cuenta</option>
+    </select>
+</div>
+
+<div class="container">
+    <img src="logo.png" alt="El Mundo Imaginario" class="logo-empresa" onerror="this.style.display='none';">
+    
+    <h2 id="titulo">Iniciar Sesión - ImagTEM</h2>
+    
+    <div id="formularioAuth">
+        <div id="grupoRegistro" class="campos-registro">
+            <input type="text" id="campoUsuario" placeholder="Tu nombre de usuario (Ej: Joseph)">
+            <input type="text" id="campoApellido" placeholder="Tu apellido">
+            <label for="campoFecha">Fecha de nacimiento:</label>
+            <input type="date" id="campoFecha">
+        </div>
+        
+        <input type="text" id="correo" placeholder="Usuario o Correo electrónico">
+        <input type="password" id="clave" placeholder="Tu contraseña">
+        
+        <button id="btnPrincipal" onclick="procesarFormulario()">Entrar</button>
+        <span id="cambioModo" class="cambio" onclick="cambiarModo()">¿No tienes cuenta? Regístrate aquí</span>
+    </div>
+    
+    <div id="mensaje" class="mensaje"></div>
+    <button id="btnCerrarSesion" class="btn-cerrar" onclick="cerrarSesion()">Cerrar Sesión</button>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://sqppvkeorapvhcjyjteu.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_537l912kRN5B7ghGctu2ZA_Qnb8ZwQF';
+    
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let esRegistro = false;
+
+    window.onload = function() {
+        actualizarHistorialPantalla();
+    }
+
+    function actualizarHistorialPantalla() {
+        const historialS = localStorage.getItem('historial_completo_imagtem');
+        const historial = historialS ? JSON.parse(historialS) : [];
+        const select = document.getElementById('listaCorreos');
+        select.innerHTML = '<option value="">Selecciona una cuenta</option>';
+        historial.forEach(cuenta => {
+            const opt = document.createElement('option');
+            opt.value = cuenta.usuario;
+            opt.innerText = cuenta.usuario;
+            select.appendChild(opt);
+        });
+    }
+
+    function seleccionarCuentaHistorial() {
+        const select = document.getElementById('listaCorreos');
+        const usuarioSeleccionado = select.value;
+        
+        if (usuarioSeleccionado) {
+            const historialS = localStorage.getItem('historial_completo_imagtem');
+            const historial = historialS ? JSON.parse(historialS) : [];
+            
+            const cuentaEncontrada = historial.find(c => c.usuario === usuarioSeleccionado);
+            
+            if (cuentaEncontrada) {
+                document.getElementById('correo').value = cuentaEncontrada.usuario;
+                document.getElementById('clave').value = cuentaEncontrada.clave;
+                
+                // Entra de forma automática al elegir el nombre
+                procesarFormulario();
+            }
+        }
+    }
+
+    function guardarEnHistorial(nuevoUsuario, claveUsuario) {
+        const historialS = localStorage.getItem('historial_completo_imagtem');
+        let historial = historialS ? JSON.parse(historialS) : [];
+        
+        const index = historial.findIndex(c => c.usuario === nuevoUsuario);
+        if (index === -1) {
+            historial.push({ usuario: nuevoUsuario, clave: claveUsuario });
+        } else {
+            historial[index].clave = claveUsuario; 
+        }
+        
+        localStorage.setItem('historial_completo_imagtem', JSON.stringify(historial));
+        actualizarHistorialPantalla();
+    }
+
+    function cambiarModo() {
+        const titulo = document.getElementById('titulo');
+        const btnPrincipal = document.getElementById('btnPrincipal');
+        const cambioModo = document.getElementById('cambioModo');
+        const mensajeDiv = document.getElementById('mensaje');
+        const grupoRegistro = document.getElementById('grupoRegistro');
+        
+        mensajeDiv.innerText = "";
+        esRegistro = !esRegistro;
+        
+        if (esRegistro) {
+            titulo.innerText = "Registrarse - ImagTEM";
+            btnPrincipal.innerText = "Crear Cuenta";
+            cambioModo.innerText = "¿Ya tienes cuenta? Inicia sesión";
+            grupoRegistro.style.display = 'block'; 
+            document.getElementById('correo').placeholder = "Tu correo electrónico real";
+        } else {
+            titulo.innerText = "Iniciar Sesión - ImagTEM";
+            btnPrincipal.innerText = "Entrar";
+            cambioModo.innerText = "¿No tienes cuenta? Regístrate aquí";
+            grupoRegistro.style.display = 'none'; 
+            document.getElementById('correo').placeholder = "Usuario o Correo electrónico";
+        }
+    }
+
+    function mostrarPanelBienvenida(nombre, grado, fechaNacimiento) {
+        document.getElementById('formularioAuth').style.display = 'none';
+        document.getElementById('titulo').innerText = "Panel de Control";
+        document.getElementById('btnCerrarSesion').style.display = 'block';
+        
+        const mensajeDiv = document.getElementById('mensaje');
+        mensajeDiv.style.color = "green";
+
+        let saludoFinal = "¡Bienvenido, " + nombre + "!";
+        
+        if (fechaNacimiento) {
+            const partes = fechaNacimiento.split("-");
+            if (partes.length === 3) {
+                const mesCumple = partes[1]; 
+                const diaCumple = partes[2]; 
+                
+                const hoy = new Date();
+                const mesHoy = String(hoy.getMonth() + 1).padStart(2, '0'); 
+                const diaHoy = String(hoy.getDate()).padStart(2, '0');    
+                
+                if (mesCumple === mesHoy && diaCumple === diaHoy) {
+                    saludoFinal = "¡🎉 ¡Feliz Cumpleaños, " + nombre + "! 🎂🎉";
+                    mensajeDiv.style.color = "#ff4757"; 
+                }
+            }
+        }
+
+        mensajeDiv.innerHTML = saludoFinal + "<br><span style='font-size:12px; color:gray;'>Rango: " + grado + "</span>";
+    }
+
+    function cerrarSesion() {
+        document.getElementById('formularioAuth').style.display = 'block';
+        document.getElementById('btnCerrarSesion').style.display = 'none';
+        document.getElementById('mensaje').innerText = "";
+        document.getElementById('titulo').innerText = "Iniciar Sesión - ImagTEM";
+        document.getElementById('correo').value = "";
+        document.getElementById('clave').value = "";
+        document.getElementById('listaCorreos').value = "";
+    }
+
+    async function procesarFormulario() {
+        const userInput = document.getElementById('correo').value.trim();
+        const password = document.getElementById('clave').value;
+        const nameUser = document.getElementById('campoUsuario').value.trim();
+        const apellido = document.getElementById('campoApellido').value.trim();
+        const fechaNac = document.getElementById('campoFecha').value;
+        const mensajeDiv = document.getElementById('mensaje');
+
+        if (!userInput || !password || (esRegistro && (!nameUser || !apellido || !fechaNac))) {
+            mensajeDiv.style.color = "red";
+            mensajeDiv.innerText = "Por favor, llena todos los campos.";
+            return;
+        }
+
+        if (esRegistro) {
+            mensajeDiv.style.color = "orange";
+            mensajeDiv.innerText = "Verificando disponibilidad...";
+
+            const { data: extCorreo } = await supabaseClient
+                .from('usuarios')
+                .select('correo')
+                .eq('correo', userInput);
+
+            const { data: extUser } = await supabaseClient
+                .from('usuarios')
+                .select('nameusuary')
+                .eq('nameusuary', nameUser);
+
+            if ((extCorreo && extCorreo.length > 0) || (extUser && extUser.length > 0)) {
+                mensajeDiv.style.color = "red";
+                mensajeDiv.innerText = "El usuario o correo ya están registrados.";
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('usuarios')
+                .insert([{ 
+                    correo: userInput, 
+                    clave: password, 
+                    nameusuary: nameUser,
+                    apellido: apellido,
+                    grado: "usuario común", 
+                    "Fecha de nacimiento": fechaNac
+                }]);
+
+            if (error) {
+                console.error(error);
+                mensajeDiv.style.color = "red";
+                mensajeDiv.innerText = "Error al guardar los datos.";
+            } else {
+                mensajeDiv.style.color = "green";
+                mensajeDiv.innerText = "¡Cuenta creada! Ya puedes iniciar sesión.";
+                guardarEnHistorial(nameUser, password);
+                cambiarModo();
+            }
+        } else {
+            mensajeDiv.style.color = "orange";
+            mensajeDiv.innerText = "Verificando...";
+
+            const { data: loginUser } = await supabaseClient
+                .from('usuarios')
+                .select('*')
+                .eq('nameusuary', userInput)
+                .eq('clave', password);
+
+            const { data: loginCorreo } = await supabaseClient
+                .from('usuarios')
+                .select('*')
+                .eq('correo', userInput)
+                .eq('clave', password);
+
+            let cuentaEncontrada = null;
+            if (loginUser && loginUser.length > 0) cuentaEncontrada = loginUser[0];
+            else if (loginCorreo && loginCorreo.length > 0) cuentaEncontrada = loginCorreo[0];
+
+            if (!cuentaEncontrada) {
+                mensajeDiv.style.color = "red";
+                mensajeDiv.innerText = "Datos incorrectos.";
+            } else {
+                const nombreAMostrar = cuentaEncontrada.nameusuary ? cuentaEncontrada.nameusuary : cuentaEncontrada.correo;
+                const rangoGrado = cuentaEncontrada.grado ? cuentaEncontrada.grado : "Desarrolladores";
+                const fechaNacimiento = cuentaEncontrada["Fecha de nacimiento"] ? cuentaEncontrada["Fecha de nacimiento"] : "";
+
+                // Guarda la contraseña de forma segura junto al usuario en el historial permanente
+                guardarEnHistorial(userInput, password);
+
+                mostrarPanelBienvenida(nombreAMostrar, rangoGrado, fechaNacimiento);
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
