@@ -144,9 +144,7 @@
 
     function actualizarHistorialPantalla() {
         const historialS = localStorage.getItem('historial_completo_imagtem');
-        const historialOriginal = historialS ? JSON.parse(historialS) : [];
-        const historial = historialOriginal.map(c => ({ usuario: c.usuario })).filter(c => c.usuario);
-        localStorage.setItem('historial_completo_imagtem', JSON.stringify(historial));
+        const historial = historialS ? JSON.parse(historialS) : [];
         const select = document.getElementById('listaCorreos');
         select.innerHTML = '<option value="">Selecciona una cuenta</option>';
         historial.forEach(cuenta => {
@@ -169,21 +167,26 @@
             
             if (cuentaEncontrada) {
                 document.getElementById('correo').value = cuentaEncontrada.usuario;
-                document.getElementById('clave').value = '';
-                document.getElementById('clave').focus();
+                document.getElementById('clave').value = cuentaEncontrada.clave;
+                
+                // Entra de forma automática al elegir el nombre
+                procesarFormulario();
             }
         }
     }
 
-    function guardarEnHistorial(nuevoUsuario) {
+    function guardarEnHistorial(nuevoUsuario, claveUsuario) {
         const historialS = localStorage.getItem('historial_completo_imagtem');
         let historial = historialS ? JSON.parse(historialS) : [];
         
         const index = historial.findIndex(c => c.usuario === nuevoUsuario);
-        if (index === -1) historial.push({ usuario: nuevoUsuario });
+        if (index === -1) {
+            historial.push({ usuario: nuevoUsuario, clave: claveUsuario });
+        } else {
+            historial[index].clave = claveUsuario; 
+        }
         
-        // Nunca guardar contraseñas en el navegador.
-        localStorage.setItem('historial_completo_imagtem', JSON.stringify(historial.map(c => ({ usuario: c.usuario }))));
+        localStorage.setItem('historial_completo_imagtem', JSON.stringify(historial));
         actualizarHistorialPantalla();
     }
 
@@ -270,46 +273,73 @@
             mensajeDiv.style.color = "orange";
             mensajeDiv.innerText = "Verificando disponibilidad...";
 
-            const { error } = await supabaseClient.rpc('registrar_usuario', {
-                p_correo: userInput,
-                p_clave: password,
-                p_nameusuary: nameUser,
-                p_apellido: apellido,
-                p_fecha: fechaNac
-            });
+            const { data: extCorreo } = await supabaseClient
+                .from('usuarios')
+                .select('correo')
+                .eq('correo', userInput);
+
+            const { data: extUser } = await supabaseClient
+                .from('usuarios')
+                .select('nameusuary')
+                .eq('nameusuary', nameUser);
+
+            if ((extCorreo && extCorreo.length > 0) || (extUser && extUser.length > 0)) {
+                mensajeDiv.style.color = "red";
+                mensajeDiv.innerText = "El usuario o correo ya están registrados.";
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('usuarios')
+                .insert([{ 
+                    correo: userInput, 
+                    clave: password, 
+                    nameusuary: nameUser,
+                    apellido: apellido,
+                    grado: "usuario común", 
+                    "Fecha de nacimiento": fechaNac
+                }]);
 
             if (error) {
                 console.error(error);
                 mensajeDiv.style.color = "red";
-                mensajeDiv.innerText = error.message.includes('ya están registrados')
-                    ? "El usuario o correo ya están registrados."
-                    : (error.message.includes('8 caracteres') ? error.message : "Error al guardar los datos.");
+                mensajeDiv.innerText = "Error al guardar los datos.";
             } else {
                 mensajeDiv.style.color = "green";
                 mensajeDiv.innerText = "¡Cuenta creada! Ya puedes iniciar sesión.";
-                guardarEnHistorial(nameUser);
+                guardarEnHistorial(nameUser, password);
                 cambiarModo();
             }
         } else {
             mensajeDiv.style.color = "orange";
             mensajeDiv.innerText = "Verificando...";
 
-            const { data: cuentaEncontrada, error } = await supabaseClient.rpc('autenticar_usuario', {
-                p_login: userInput,
-                p_clave: password
-            });
+            const { data: loginUser } = await supabaseClient
+                .from('usuarios')
+                .select('*')
+                .eq('nameusuary', userInput)
+                .eq('clave', password);
 
-            if (error || !cuentaEncontrada || cuentaEncontrada.length === 0) {
+            const { data: loginCorreo } = await supabaseClient
+                .from('usuarios')
+                .select('*')
+                .eq('correo', userInput)
+                .eq('clave', password);
+
+            let cuentaEncontrada = null;
+            if (loginUser && loginUser.length > 0) cuentaEncontrada = loginUser[0];
+            else if (loginCorreo && loginCorreo.length > 0) cuentaEncontrada = loginCorreo[0];
+
+            if (!cuentaEncontrada) {
                 mensajeDiv.style.color = "red";
                 mensajeDiv.innerText = "Datos incorrectos.";
             } else {
-                const cuenta = cuentaEncontrada[0];
-                const nombreAMostrar = cuenta.nameusuary ? cuenta.nameusuary : cuenta.correo;
-                const rangoGrado = cuenta.grado ? cuenta.grado : "Desarrolladores";
-                const fechaNacimiento = cuenta["Fecha de nacimiento"] ? cuenta["Fecha de nacimiento"] : "";
+                const nombreAMostrar = cuentaEncontrada.nameusuary ? cuentaEncontrada.nameusuary : cuentaEncontrada.correo;
+                const rangoGrado = cuentaEncontrada.grado ? cuentaEncontrada.grado : "Desarrolladores";
+                const fechaNacimiento = cuentaEncontrada["Fecha de nacimiento"] ? cuentaEncontrada["Fecha de nacimiento"] : "";
 
-                // Guarda solo el identificador; nunca la contraseña
-                guardarEnHistorial(userInput);
+                // Guarda la contraseña de forma segura junto al usuario en el historial permanente
+                guardarEnHistorial(userInput, password);
 
                 mostrarPanelBienvenida(nombreAMostrar, rangoGrado, fechaNacimiento);
             }
