@@ -1,24 +1,533 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cambiar contraseña - ImagTEM</title>
-<style>
-body{font-family:system-ui,sans-serif;background:#f0f2f5;display:grid;place-items:center;min-height:100vh;margin:0;padding:20px}.card{background:white;padding:25px;border-radius:14px;box-shadow:0 4px 20px #0002;width:min(360px,100%)}h2{margin-top:0}input,button{width:100%;padding:12px;margin-top:10px;box-sizing:border-box;border-radius:6px}input{border:1px solid #dadce0}button{border:0;background:#4285f4;color:white;font-weight:bold;cursor:pointer}.msg{margin-top:14px;font-size:13px;font-weight:bold}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servicios ImagTEM</title>
+    
+    <!-- LIBRERÍAS EXTERNAS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --fondo-pantalla: #f0f2f5;
+            --fondo-tarjeta: #ffffff;
+            --texto-principal: #202124;
+            --texto-suave: #5f6368;
+            --borde: #dadce0;
+            --color-azul: #4285F4;
+            --color-rojo: #ea4335;
+            --color-verde: #34a853;
+            --sombra: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        body.modo-oscuro {
+            --fondo-pantalla: #121212;
+            --fondo-tarjeta: #1e1e1e;
+            --texto-principal: #e8eaed;
+            --texto-suave: #9aa0a6;
+            --borde: #3c4043;
+            --sombra: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--fondo-pantalla);
+            color: var(--texto-principal);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 15px;
+        }
+
+        .boton-tema {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: var(--fondo-tarjeta);
+            border: 1px solid var(--borde);
+            color: var(--texto-principal);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .tarjeta-principal {
+            background-color: var(--fondo-tarjeta);
+            padding: 25px 20px;
+            border-radius: 14px;
+            box-shadow: var(--sombra);
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            border-top: 6px solid var(--color-azul);
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+        }
+
+        .pestanas {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--borde);
+        }
+
+        .boton-pestana {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: none;
+            color: var(--texto-suave);
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .boton-pestana.activa {
+            color: var(--color-azul);
+            border-bottom: 3px solid var(--color-azul);
+        }
+
+        .boton-google {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background-color: #ffffff;
+            color: #3c4043;
+            border: 1px solid var(--borde);
+            border-radius: 6px;
+            padding: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .boton-google:active, .boton-principal:active {
+            transform: scale(0.98);
+        }
+
+        .linea-separadora {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: var(--texto-suave);
+            font-size: 11px;
+            margin: 15px 0;
+        }
+
+        .linea-separadora::before, .linea-separadora::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid var(--borde);
+        }
+
+        .linea-separadora:not(:empty)::before { margin-right: .5em; }
+        .linea-separadora:not(:empty)::after { margin-left: .5em; }
+
+        .campo {
+            text-align: left;
+            margin-bottom: 12px;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--texto-suave);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        input {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid var(--borde);
+            border-radius: 6px;
+            background-color: var(--fondo-tarjeta);
+            color: var(--texto-principal);
+            font-size: 13px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--color-azul);
+        }
+
+        .boton-principal {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--color-azul);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .texto-olvidaste {
+            display: inline-block;
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--color-azul);
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .lista-cuentas {
+            text-align: left;
+            margin-top: 20px;
+            border-top: 1px dashed var(--borde);
+            padding-top: 12px;
+        }
+
+        .elemento-cuenta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: rgba(0,0,0,0.04);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+
+        .etiqueta-lista {
+            font-size: 10px;
+            background-color: rgba(52, 168, 83, 0.15);
+            color: var(--color-verde);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .mensaje-notificacion {
+            margin-top: 14px;
+            font-size: 12px;
+            font-weight: bold;
+            min-height: 18px;
+            word-break: break-word;
+        }
+    </style>
 </head>
 <body>
-<div class="card"><h2>Cambiar contraseña</h2><p>Escribe una contraseña nueva para tu cuenta.</p><input id="password" type="password" minlength="8" placeholder="Nueva contraseña"><button id="save">Guardar contraseña</button><div id="msg" class="msg"></div></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<button type="button" class="boton-tema" onclick="cambiarFondo()">Modo Oscuro/Claro</button>
+
+<div class="tarjeta-principal">
+    <h2 id="tituloPantalla">Ingresar a ImagTEM</h2>
+
+    <!-- CONTENEDOR DE PESTAÑAS -->
+    <div class="pestanas" id="contenedorPestanas">
+        <button type="button" class="boton-pestana activa" id="pestanaIngreso" onclick="cambiarModo('ingresar')">Ingresar</button>
+        <button type="button" class="boton-pestana" id="pestanaRegistro" onclick="cambiarModo('registrar')">Registrarse</button>
+    </div>
+
+    <div class="linea-separadora" id="separadorTexto">o con tu correo</div>
+
+    <!-- FORMULARIO DE ENTRADA -->
+    <div id="formularioDatos">
+        <div class="campo" id="campoNombreUsuario" style="display: none;">
+            <label>Nombre de Usuario</label>
+            <input type="text" id="inputNombre" placeholder="Escribe tu nombre">
+        </div>
+
+        <div class="campo" id="campoApellido" style="display: none;">
+            <label>Apellido</label>
+            <input type="text" id="inputApellido" placeholder="Escribe tu apellido">
+        </div>
+
+        <div class="campo" id="campoFechaNacimiento" style="display: none;">
+            <label>Fecha de nacimiento</label>
+            <input type="date" id="inputFechaNacimiento">
+        </div>
+
+        <div class="campo" id="campoPais" style="display: none;">
+            <label>País</label>
+            <input type="text" id="inputPais" placeholder="Escribe tu país">
+        </div>
+
+        <div class="campo">
+            <label>Correo Electrónico</label>
+            <input type="email" id="inputCorreo" placeholder="correo@ejemplo.com">
+        </div>
+
+        <div class="campo">
+            <label id="etiquetaClave">Contraseña</label>
+            <input type="password" id="inputClave" placeholder="••••••••">
+        </div>
+
+        <button type="button" class="boton-principal" id="btnAccionPrincipal" onclick="ejecutarAccion()">Ingresar</button>
+        
+        <div>
+            <span class="texto-olvidaste" id="btnOlvidaste" onclick="activarModoCambiarClave()">¿Olvidaste tu contraseña?</span>
+        </div>
+    </div>
+
+    <!-- LISTA DE CUENTAS EN EL TELÉFONO -->
+    <div class="lista-cuentas">
+        <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px;">Cuentas guardadas en este equipo:</div>
+        <div id="contenedorListaCuentas"></div>
+    </div>
+
+    <div id="mensajeAviso" class="mensaje-notificacion"></div>
+</div>
+
 <script>
-const supabaseClient=window.supabase.createClient('https://sqppvkeorapvhcjyjteu.supabase.co','sb_publishable_537l912kRN5B7ghGctu2ZA_Qnb8ZwQF');
-const msg=document.getElementById('msg');
-function show(t,error=false){msg.textContent=t;msg.style.color=error?'#ea4335':'#34a853';}
-async function ready(){const {data:{session}}=await supabaseClient.auth.getSession(); if(!session) show('El enlace no es válido o ya venció.',true);}
-supabaseClient.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY') show('Enlace válido. Elige una contraseña nueva.');});
-document.getElementById('save').onclick=async()=>{const password=document.getElementById('password').value;if(password.length<8){show('Usa al menos 8 caracteres.',true);return;}const {error}=await supabaseClient.auth.updateUser({password});if(error)show('No se pudo cambiar la contraseña.',true);else{show('Contraseña actualizada. Ya puedes cerrar esta página.');await supabaseClient.auth.signOut();}};
-ready();
+    // INICIALIZACIÓN CON VERIFICACIÓN DE ERRORES
+    let supabaseClient = null;
+    let modoFormulario = 'ingresar';
+    const CLAVE_MEMORIA_LOCAL = 'imagtem_lista_cuentas_guardadas';
+    const URL_REDIRECCION_AUTH = 'https://merchajoseph-glitch.github.io/ImagTEM-Services/';
+    const URL_RECUPERACION_AUTH = 'https://merchajoseph-glitch.github.io/ImagTEM-Services/reset-password.html';
+
+    try {
+        const URL_SUPABASE = 'https://sqppvkeorapvhcjyjteu.supabase.co';
+        const LLAVE_SUPABASE = 'sb_publishable_537l912kRN5B7ghGctu2ZA_Qnb8ZwQF';
+        if (window.supabase) {
+            supabaseClient = window.supabase.createClient(URL_SUPABASE, LLAVE_SUPABASE);
+        }
+        
+    } catch (err) {
+        console.error("Error al cargar conexiones:", err);
+    }
+
+    window.onload = function() {
+        dibujarCuentasGuardadas();
+        if (supabaseClient) {
+            supabaseClient.auth.onAuthStateChange(function(event) {
+                if (event === 'PASSWORD_RECOVERY') activarModoNuevaClave();
+            });
+        }
+    };
+
+    // ACCIÓN DE PESTAÑAS (INGRESAR / REGISTRARSE)
+    function cambiarModo(nuevoModo) {
+        modoFormulario = nuevoModo;
+        document.getElementById('contenedorPestanas').style.display = 'flex';
+        document.getElementById('separadorTexto').style.display = 'flex';
+        
+        const esIngreso = (nuevoModo === 'ingresar');
+        document.getElementById('pestanaIngreso').className = esIngreso ? 'boton-pestana activa' : 'boton-pestana';
+        document.getElementById('pestanaRegistro').className = !esIngreso ? 'boton-pestana activa' : 'boton-pestana';
+        document.getElementById('campoNombreUsuario').style.display = esIngreso ? 'none' : 'block';
+        document.getElementById('campoApellido').style.display = esIngreso ? 'none' : 'block';
+        document.getElementById('campoFechaNacimiento').style.display = esIngreso ? 'none' : 'block';
+        document.getElementById('campoPais').style.display = esIngreso ? 'none' : 'block';
+        document.getElementById('inputClave').parentElement.style.display = 'block';
+        document.getElementById('etiquetaClave').innerText = 'Contraseña';
+        document.getElementById('tituloPantalla').innerText = esIngreso ? "Ingresar a ImagTEM" : "Crear Nueva Cuenta";
+        document.getElementById('btnAccionPrincipal').innerText = esIngreso ? "Ingresar" : "Crear Cuenta";
+        
+        const btnOlvidaste = document.getElementById('btnOlvidaste');
+        btnOlvidaste.style.display = 'inline-block';
+        btnOlvidaste.innerText = "¿Olvidaste tu contraseña?";
+        btnOlvidaste.onclick = activarModoCambiarClave;
+        document.getElementById('etiquetaClave').innerText = "Contraseña";
+    }
+
+    // AUTENTICACIÓN NATIVA DE SUPABASE AUTH
+    async function ejecutarAccion() {
+        const correo = document.getElementById('inputCorreo').value.trim();
+        const clave = document.getElementById('inputClave').value;
+        const nombre = document.getElementById('inputNombre').value.trim();
+        const apellido = document.getElementById('inputApellido').value.trim();
+        const fechaNacimiento = document.getElementById('inputFechaNacimiento').value;
+        const pais = document.getElementById('inputPais').value.trim();
+
+        const necesitaCorreo = modoFormulario !== 'nueva_clave';
+        if ((necesitaCorreo && !correo) || (modoFormulario !== 'recuperar' && modoFormulario !== 'nueva_clave' && !clave) || (modoFormulario === 'registrar' && (!nombre || !apellido || !fechaNacimiento || !pais)) || (modoFormulario === 'nueva_clave' && !clave)) {
+            mostrarMensaje("Por favor llena todos los cuadros vacíos.", true);
+            return;
+        }
+
+        if (modoFormulario === 'nueva_clave') {
+            actualizarContrasena(clave);
+            return;
+        }
+
+        if (!supabaseClient) {
+            mostrarMensaje("Error: No hay conexión con Supabase.", true);
+            return;
+        }
+
+        mostrarMensaje("Procesando petición...", false);
+
+        if (modoFormulario === 'recuperar') {
+            await guardarNuevaContrasena(correo);
+            return;
+        }
+
+        if (modoFormulario === 'registrar') {
+            const { data, error } = await supabaseClient.auth.signUp({
+                email: correo,
+                password: clave,
+                options: { emailRedirectTo: URL_REDIRECCION_AUTH, data: {
+                    nameusuary: nombre,
+                    apellido: apellido,
+                    fecha_nacimiento: fechaNacimiento,
+                    country: pais
+                } }
+            });
+
+            if (error) {
+                mostrarMensaje("Error al registrar: " + error.message, true);
+                return;
+            }
+
+            guardarEnTelefono({ correo: correo, nameusuary: nombre });
+            mostrarMensaje("¡Cuenta creada e ingresada correctamente!", false);
+            return;
+        }
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: correo,
+            password: clave
+        });
+
+        if (error) {
+            mostrarMensaje("Correo o contraseña incorrectos.", true);
+            return;
+        }
+
+        const nombreUsuario = data.user.user_metadata?.nameusuary || correo;
+        guardarEnTelefono({ correo: correo, nameusuary: nombreUsuario });
+        mostrarMensaje("¡Bienvenido de nuevo, " + nombreUsuario + "!", false);
+    }
+
+    // RECUPERACIÓN SEGURA DE CONTRASEÑA
+    function activarModoCambiarClave() {
+        modoFormulario = 'recuperar';
+        document.getElementById('contenedorPestanas').style.display = 'none';
+        document.getElementById('separadorTexto').style.display = 'none';
+        document.getElementById('campoNombreUsuario').style.display = 'none';
+        document.getElementById('campoApellido').style.display = 'none';
+        document.getElementById('campoFechaNacimiento').style.display = 'none';
+        document.getElementById('campoPais').style.display = 'none';
+        document.getElementById('inputClave').parentElement.style.display = 'none';
+        document.getElementById('tituloPantalla').innerText = 'Recuperar contraseña';
+        document.getElementById('btnAccionPrincipal').innerText = 'Enviar enlace';
+        document.getElementById('btnOlvidaste').innerText = '← Volver atrás';
+        document.getElementById('btnOlvidaste').onclick = function() { cambiarModo('ingresar'); };
+    }
+
+    function activarModoNuevaClave() {
+        modoFormulario = 'nueva_clave';
+        document.getElementById('contenedorPestanas').style.display = 'none';
+        document.getElementById('separadorTexto').style.display = 'none';
+        document.getElementById('campoNombreUsuario').style.display = 'none';
+        document.getElementById('campoApellido').style.display = 'none';
+        document.getElementById('campoFechaNacimiento').style.display = 'none';
+        document.getElementById('campoPais').style.display = 'none';
+        document.getElementById('inputCorreo').parentElement.style.display = 'none';
+        document.getElementById('inputClave').parentElement.style.display = 'block';
+        document.getElementById('etiquetaClave').innerText = 'Nueva contraseña';
+        document.getElementById('tituloPantalla').innerText = 'Cambiar contraseña';
+        document.getElementById('btnAccionPrincipal').innerText = 'Guardar contraseña';
+        document.getElementById('btnOlvidaste').style.display = 'none';
+    }
+
+    async function guardarNuevaContrasena(correo) {
+        mostrarMensaje('Enviando enlace de recuperación...', false);
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(correo, {
+            redirectTo: URL_RECUPERACION_AUTH
+        });
+        if (error) mostrarMensaje('No se pudo enviar el enlace.', true);
+        else mostrarMensaje('Revisa tu correo y abre el enlace para crear una contraseña nueva.', false);
+    }
+
+    async function actualizarContrasena(nuevaClave) {
+        if (nuevaClave.length < 8) {
+            mostrarMensaje('La contraseña debe tener al menos 8 caracteres.', true);
+            return;
+        }
+        mostrarMensaje('Guardando contraseña...', false);
+        const { error } = await supabaseClient.auth.updateUser({ password: nuevaClave });
+        if (error) mostrarMensaje('No se pudo cambiar la contraseña.', true);
+        else {
+            mostrarMensaje('¡Contraseña actualizada correctamente!', false);
+            await supabaseClient.auth.signOut();
+            cambiarModo('ingresar');
+        }
+    }
+
+    // GUARDAR SOLO EL IDENTIFICADOR EN EL DISPOSITIVO
+    function guardarEnTelefono(usuario) {
+        let lista = JSON.parse(localStorage.getItem(CLAVE_MEMORIA_LOCAL) || '[]');
+        lista = lista.filter(function(c) { return c.correo !== usuario.correo; });
+        lista.push({ correo: usuario.correo, nameusuary: usuario.nameusuary || usuario.correo.split('@')[0] });
+
+        localStorage.setItem(CLAVE_MEMORIA_LOCAL, JSON.stringify(lista));
+        dibujarCuentasGuardadas();
+    }
+
+    function seleccionarCuentaDeLista(correo) {
+        document.getElementById('inputCorreo').value = correo;
+        mostrarMensaje("Correo seleccionado: " + correo, false);
+    }
+
+    function borrarCuentaDeLista(e, correo) {
+        e.stopPropagation();
+        let lista = JSON.parse(localStorage.getItem(CLAVE_MEMORIA_LOCAL) || '[]');
+        lista = lista.filter(function(c) { return c.correo !== correo; });
+        localStorage.setItem(CLAVE_MEMORIA_LOCAL, JSON.stringify(lista));
+        dibujarCuentasGuardadas();
+    }
+
+    function dibujarCuentasGuardadas() {
+        const contenedor = document.getElementById('contenedorListaCuentas');
+        const lista = JSON.parse(localStorage.getItem(CLAVE_MEMORIA_LOCAL) || '[]');
+
+        if (lista.length === 0) {
+            contenedor.innerHTML = '<div style="font-size:11px; color:var(--texto-suave);">Sin cuentas guardadas.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = '';
+        lista.forEach(function(item) {
+            const div = document.createElement('div');
+            div.className = 'elemento-cuenta';
+            div.onclick = function() { seleccionarCuentaDeLista(item.correo); };
+            div.innerHTML = `
+                <div style="font-size:12px;">
+                    <strong>${item.nameusuary}</strong>
+                    <div>${item.correo}</div>
+                </div>
+                <div>
+                    <span class="etiqueta-lista">Lista</span>
+                    <button type="button" onclick="borrarCuentaDeLista(event, '${item.correo}')" style="border:none; background:none; color:var(--color-rojo); font-weight:bold; cursor:pointer; margin-left:6px;">✕</button>
+                </div>
+            `;
+            contenedor.appendChild(div);
+        });
+    }
+
+    function mostrarMensaje(texto, esError) {
+        const el = document.getElementById('mensajeAviso');
+        el.style.color = esError ? "var(--color-rojo)" : "var(--color-verde)";
+        el.innerText = texto;
+    }
+
+    function cambiarFondo() {
+        document.body.classList.toggle('modo-oscuro');
+    }
 </script>
+
 </body>
 </html>
